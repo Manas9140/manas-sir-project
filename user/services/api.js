@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // Production Render Backend URL for Client APK
-export const SERVER_HOST = 'https://manas-sir-project.onrender.com';
+export const SERVER_HOST = 'https://manas-sir-project-7mng.onrender.com';
 export const API_BASE_URL = `${SERVER_HOST}/api`;
 export const SOCKET_URL = SERVER_HOST;
 
