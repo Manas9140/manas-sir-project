@@ -123,7 +123,29 @@ export const getVendorProfile = async (req, res) => {
 export const updateVendorProfile = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
-    const { pincodes, baseVisitingCharge, upiId } = req.body;
+    const {
+      name,
+      businessName,
+      email,
+      category,
+      subServices,
+      experienceYears,
+      pincodes,
+      baseVisitingCharge,
+      upiId,
+      serviceRadiusKm,
+      gstNumber,
+      ownerName,
+      alternatePhone,
+      bio,
+      registrationType,
+      yearEstablished,
+      customRates,
+      branchAddresses,
+      kycDocuments,
+      address,
+      isOnline,
+    } = req.body;
 
     const vendor = await Vendor.findById(vendorId);
 
@@ -131,9 +153,17 @@ export const updateVendorProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Vendor not found' });
     }
 
+    if (name !== undefined) vendor.name = name.trim();
+    if (businessName !== undefined) vendor.businessName = businessName.trim();
+    if (email !== undefined) vendor.email = email.trim();
+    if (category !== undefined) vendor.category = category.trim();
+    if (subServices !== undefined && Array.isArray(subServices)) vendor.subServices = subServices;
+    if (experienceYears !== undefined) vendor.experienceYears = experienceYears;
+    if (isOnline !== undefined) vendor.isOnline = Boolean(isOnline);
+
     if (pincodes !== undefined) {
       if (!Array.isArray(pincodes) || pincodes.length === 0) {
-         return res.status(400).json({ success: false, message: 'At least one pincode is required' });
+        return res.status(400).json({ success: false, message: 'At least one pincode is required' });
       }
       vendor.pincodes = pincodes;
     }
@@ -146,12 +176,63 @@ export const updateVendorProfile = async (req, res) => {
       vendor.upiId = upiId.trim();
     }
 
+    if (serviceRadiusKm !== undefined) {
+      vendor.serviceRadiusKm = Number(serviceRadiusKm);
+    }
+
+    if (gstNumber !== undefined) vendor.gstNumber = gstNumber.trim();
+    if (ownerName !== undefined) vendor.ownerName = ownerName.trim();
+    if (alternatePhone !== undefined) vendor.alternatePhone = alternatePhone.trim();
+    if (bio !== undefined) vendor.bio = bio.trim();
+    if (registrationType !== undefined) vendor.registrationType = registrationType;
+    if (yearEstablished !== undefined) vendor.yearEstablished = yearEstablished;
+
+    if (customRates !== undefined && typeof customRates === 'object') {
+      vendor.customRates = {
+        ...vendor.customRates,
+        ...customRates,
+      };
+    }
+
+    if (branchAddresses !== undefined && Array.isArray(branchAddresses)) {
+      vendor.branchAddresses = branchAddresses;
+    }
+
+    if (kycDocuments !== undefined && typeof kycDocuments === 'object') {
+      vendor.kycDocuments = {
+        ...vendor.kycDocuments,
+        ...kycDocuments,
+      };
+    }
+
+    if (category !== undefined && typeof category === 'string' && category.trim()) {
+      vendor.category = category.trim();
+    }
+
+    if (address !== undefined && typeof address === 'object') {
+      const existingLoc = vendor.address?.location?.coordinates
+        ? { type: 'Point', coordinates: vendor.address.location.coordinates }
+        : { type: 'Point', coordinates: [0, 0] };
+
+      const safeLocation = (address.location && Array.isArray(address.location.coordinates))
+        ? { type: 'Point', coordinates: address.location.coordinates }
+        : existingLoc;
+
+      vendor.address = {
+        street: address.street !== undefined ? address.street : (vendor.address?.street || ''),
+        area: address.area !== undefined ? address.area : (vendor.address?.area || ''),
+        city: address.city !== undefined ? address.city : (vendor.address?.city || ''),
+        pincode: address.pincode !== undefined ? address.pincode : (vendor.address?.pincode || ''),
+        location: safeLocation,
+      };
+    }
+
     await vendor.save();
 
     return res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      vendor
+      vendor,
     });
 
   } catch (error) {

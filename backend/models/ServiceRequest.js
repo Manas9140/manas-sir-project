@@ -87,7 +87,50 @@ const serviceRequestSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    startOtp: {
+      type: String,
+      default: () => Math.floor(1000 + Math.random() * 9000).toString(),
+    },
+    workStartedAt: {
+      type: Date,
+      default: null,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    paymentMode: {
+      type: String,
+      default: 'Cash',
+    },
+    reviewSubmitted: {
+      type: Boolean,
+      default: false,
+    },
+    review: {
+      rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+        default: null,
+      },
+      comment: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      feedbackChips: [
+        {
+          type: String,
+        },
+      ],
+      createdAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
+
   {
     timestamps: true,
   }

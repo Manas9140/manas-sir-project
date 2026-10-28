@@ -64,12 +64,14 @@ const userSchema = new mongoose.Schema(
     },
     addressDetails: {
       houseNo: { type: String, default: '' },
+      street: { type: String, default: '' },
       area: { type: String, default: '' },
       landmark: { type: String, default: '' },
       city: { type: String, default: '' },
       state: { type: String, default: '' },
       pincode: { type: String, default: '' },
-      formattedAddress: { type: String, default: '' }
+      formattedAddress: { type: String, default: '' },
+      label: { type: String, default: 'Home' }
     },
     savedAddresses: [addressSchema],
   },

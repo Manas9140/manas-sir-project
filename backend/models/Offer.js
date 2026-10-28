@@ -9,7 +9,7 @@ const offerSchema = new mongoose.Schema(
     },
     vendor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'Vendor',
       required: true,
     },
     bidAmount: {

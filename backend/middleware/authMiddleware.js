@@ -14,7 +14,25 @@ export const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key_12345');
 
-      req.user = await User.findById(decoded.id).select('-otp -otpExpires');
+      if (decoded.role === 'vendor') {
+        req.vendor = await Vendor.findById(decoded.id).select('-otp -otpExpires');
+        req.user = req.vendor;
+        if (req.user) req.user.role = 'vendor';
+      } else {
+        req.user = await User.findById(decoded.id).select('-otp -otpExpires');
+        if (!req.user) {
+          // Fallback check if account is in Vendor collection
+          const vendorUser = await Vendor.findById(decoded.id).select('-otp -otpExpires');
+          if (vendorUser) {
+            req.user = vendorUser;
+            req.vendor = vendorUser;
+            req.user.role = 'vendor';
+          }
+        } else {
+          req.user.role = 'customer';
+        }
+      }
+
       if (!req.user) {
         return res.status(401).json({ success: false, message: 'User not found' });
       }
@@ -44,7 +62,6 @@ export const protectVendor = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key_12345');
 
       req.vendor = await Vendor.findById(decoded.id).select('-otp -otpExpires');
-      // For legacy controllers that might still use req.user:
       req.user = req.vendor;
 
       if (!req.vendor) {

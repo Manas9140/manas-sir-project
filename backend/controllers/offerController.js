@@ -1,6 +1,7 @@
 import Offer from '../models/Offer.js';
 import ServiceRequest from '../models/ServiceRequest.js';
 import User from '../models/User.js';
+import Vendor from '../models/Vendor.js';
 
 /**
  * @desc    Get all offers for a specific service request
@@ -23,7 +24,7 @@ export const getOffersByRequestId = async (req, res) => {
     // }
 
     const offers = await Offer.find({ serviceRequest: requestId })
-      .populate('vendor', 'businessName ownerName rating completedJobsCount profileImage mobileNumber')
+      .populate('vendor', 'name businessName ownerName rating completedJobsCount profileImage mobileNumber')
       .sort({ bidAmount: 1, createdAt: -1 });
 
     res.status(200).json({ success: true, count: offers.length, data: offers });
@@ -123,34 +124,54 @@ export const acceptOffer = async (req, res) => {
  */
 export const submitOffer = async (req, res) => {
   try {
-    const { serviceRequest, bidAmount, estimatedTime, message } = req.body;
-    
+    const serviceRequestId = req.body.serviceRequest || req.body.serviceRequestId;
+    const rawBid = req.body.bidAmount !== undefined ? req.body.bidAmount : req.body.price;
+    const bidAmount = Number(rawBid);
+    const estimatedTime = req.body.estimatedTime || req.body.estimatedArrivalTime || '';
+    const message = req.body.message || '';
+    const vendorId = req.vendor?._id || req.user?._id;
+
+    if (!serviceRequestId) {
+      return res.status(400).json({ success: false, message: 'Service request ID is required' });
+    }
+
+    if (isNaN(bidAmount) || bidAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid bid amount is required' });
+    }
+
+    if (!vendorId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized vendor' });
+    }
+
     // Ensure the service request exists and is pending
-    const request = await ServiceRequest.findById(serviceRequest);
+    const request = await ServiceRequest.findById(serviceRequestId);
     if (!request || request.status !== 'pending') {
       return res.status(400).json({ success: false, message: 'Invalid or closed service request' });
     }
 
     const offer = await Offer.findOneAndUpdate(
-      { serviceRequest: req.body.serviceRequest, vendor: req.user._id },
+      { serviceRequest: serviceRequestId, vendor: vendorId },
       {
         bidAmount,
         estimatedTime,
-        message: message || '',
+        message: message.trim(),
         status: 'pending',
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).populate('vendor', 'businessName ownerName rating completedJobsCount mobileNumber profileImage');
+    ).populate('vendor', 'name businessName ownerName rating completedJobsCount mobileNumber profileImage');
 
     const io = req.app.get('socketio');
     if (io) {
-      io.to(`request_${serviceRequest}`).emit('newOffer', offer);
+      io.to(`request_${serviceRequestId}`).emit('newOffer', offer);
+      if (request.customer) {
+        io.to(`user_${request.customer}`).emit('newOffer', offer);
+      }
     }
 
-    res.status(201).json({ success: true, message: 'Bid submitted successfully', offer });
+    return res.status(201).json({ success: true, message: 'Bid submitted successfully', offer });
   } catch (error) {
     console.error('Error submitting offer:', error);
-    res.status(500).json({ success: false, message: 'Failed to submit bid' });
+    return res.status(500).json({ success: false, message: 'Failed to submit bid' });
   }
 };
 
@@ -161,13 +182,14 @@ export const submitOffer = async (req, res) => {
  */
 export const getMyBids = async (req, res) => {
   try {
-    const offers = await Offer.find({ vendor: req.user._id })
+    const vendorId = req.vendor?._id || req.user?._id;
+    const offers = await Offer.find({ vendor: vendorId })
       .populate('serviceRequest')
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, offers });
+    return res.status(200).json({ success: true, offers });
   } catch (error) {
     console.error('Error fetching vendor bids:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch your bids' });
+    return res.status(500).json({ success: false, message: 'Failed to fetch your bids' });
   }
 };

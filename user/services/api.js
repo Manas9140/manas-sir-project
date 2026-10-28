@@ -1,15 +1,18 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-// Use '192.168.1.14' for physical Android phone connected over Wi-Fi
-// Use '10.0.2.2' if running in Android Emulator
-const DEV_MACHINE_IP = '10.146.87.96';
-const PORT = '5001';
+// Production Render Backend URL for Client APK
+export const SERVER_HOST = 'https://manas-sir-project.onrender.com';
+export const API_BASE_URL = `${SERVER_HOST}/api`;
+export const SOCKET_URL = SERVER_HOST;
 
-export const API_BASE_URL = 'https://manas-sir-project.onrender.com/api';
+console.log('[API] Connected Base URL:', API_BASE_URL);
+console.log('[API] Connected Socket URL:', SOCKET_URL);
 
-console.log(API_BASE_URL);
-
+/**
+ * Get Current Profile (Customer or Vendor)
+ */
 export const getMeApi = async (token) => {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -25,12 +28,15 @@ export const getMeApi = async (token) => {
   }
 };
 
-export const sendOtpApi = async (phone) => {
+/**
+ * Send OTP (handles both customer and vendor)
+ */
+export const sendOtpApi = async (phone, role = 'customer') => {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, mobileNumber: phone, role }),
     });
     return await res.json();
   } catch (error) {
@@ -39,12 +45,15 @@ export const sendOtpApi = async (phone) => {
   }
 };
 
-export const verifyOtpApi = async (phone, otp, name = '') => {
+/**
+ * Verify OTP (handles both customer and vendor)
+ */
+export const verifyOtpApi = async (phone, otp, name = '', role = 'customer') => {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, otp, name }),
+      body: JSON.stringify({ phone, mobileNumber: phone, otp, name, role }),
     });
     return await res.json();
   } catch (error) {
@@ -53,6 +62,46 @@ export const verifyOtpApi = async (phone, otp, name = '') => {
   }
 };
 
+/**
+ * Complete Vendor Onboarding Registration
+ */
+export const onboardVendorApi = async (vendorData) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/vendor/onboard`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vendorData),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('onboardVendorApi error:', error);
+    return { success: false, message: error.message || 'Network connection error' };
+  }
+};
+
+/**
+ * Seamlessly Switch Mode between Customer and Partner
+ */
+export const switchModeApi = async (token, targetRole) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/switch-mode`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ targetRole }),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('switchModeApi error:', error);
+    return { success: false, message: error.message || 'Network connection error' };
+  }
+};
+
+/**
+ * Update Location & Address Details
+ */
 export const updateLocationApi = async (token, latitude, longitude, addressDetails) => {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/location`, {
@@ -71,7 +120,7 @@ export const updateLocationApi = async (token, latitude, longitude, addressDetai
 };
 
 /**
- * Upload Service Request with multipart/form-data for image buffers or JSON
+ * Upload Service Request (Customer)
  */
 export const createServiceRequestApi = async (token, requestData) => {
   try {
@@ -135,11 +184,16 @@ export const updateProfileImageApi = async (token, imageUri) => {
   }
 };
 
-export const getMyRequestsApi = async (token, statusFilter = '') => {
+/**
+ * Get My Requests (Customer)
+ */
+export const getMyRequestsApi = async (token, statusFilter = '', limit = null) => {
   try {
-    const url = statusFilter
-      ? `${API_BASE_URL}/service-requests/my-requests?status=${statusFilter}`
-      : `${API_BASE_URL}/service-requests/my-requests`;
+    const params = [];
+    if (statusFilter) params.push(`status=${encodeURIComponent(statusFilter)}`);
+    if (limit) params.push(`limit=${encodeURIComponent(limit)}`);
+    const qs = params.length > 0 ? `?${params.join('&')}` : '';
+    const url = `${API_BASE_URL}/service-requests/my-requests${qs}`;
 
     const res = await fetch(url, {
       method: 'GET',
@@ -156,7 +210,7 @@ export const getMyRequestsApi = async (token, statusFilter = '') => {
 
 export const getServiceRequestByIdApi = async (requestId) => {
   try {
-    const token = await AsyncStorage.getItem('@user_jwt_token');
+    const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@user_jwt_token');
     const res = await fetch(`${API_BASE_URL}/service-requests/${requestId}`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -170,7 +224,7 @@ export const getServiceRequestByIdApi = async (requestId) => {
 
 export const getOffersByRequestIdApi = async (requestId) => {
   try {
-    const token = await AsyncStorage.getItem('@user_jwt_token');
+    const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@user_jwt_token');
     const res = await fetch(`${API_BASE_URL}/offers/request/${requestId}`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -184,7 +238,7 @@ export const getOffersByRequestIdApi = async (requestId) => {
 
 export const acceptOfferApi = async (offerId) => {
   try {
-    const token = await AsyncStorage.getItem('@user_jwt_token');
+    const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@user_jwt_token');
     const res = await fetch(`${API_BASE_URL}/offers/${offerId}/accept`, {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -195,3 +249,327 @@ export const acceptOfferApi = async (offerId) => {
     return { success: false, message: error.message };
   }
 };
+
+// -------------------------------------------------------------
+// VENDOR API METHODS
+// -------------------------------------------------------------
+
+/**
+ * Available Live Leads in Vendor's Category and Pincodes
+ */
+export const getAvailableRequestsApi = async (token, category) => {
+  try {
+    const url = category
+      ? `${API_BASE_URL}/service-requests/available?category=${encodeURIComponent(category)}`
+      : `${API_BASE_URL}/service-requests/available`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('getAvailableRequestsApi error:', error);
+    return { success: false, message: error.message || 'Network error fetching available leads' };
+  }
+};
+
+/**
+ * Assigned Jobs to Vendor
+ */
+export const getAssignedRequestsApi = async (token) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/service-requests/assigned`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('getAssignedRequestsApi error:', error);
+    return { success: false, message: error.message || 'Network error fetching assigned jobs' };
+  }
+};
+
+/**
+ * Submit Bid / Quote on Service Request
+ */
+export const submitOfferApi = async (token, offerData) => {
+  try {
+    const payload = {
+      serviceRequest: offerData.serviceRequest || offerData.serviceRequestId,
+      serviceRequestId: offerData.serviceRequestId || offerData.serviceRequest,
+      bidAmount: offerData.bidAmount !== undefined ? offerData.bidAmount : offerData.price,
+      price: offerData.price !== undefined ? offerData.price : offerData.bidAmount,
+      estimatedTime: offerData.estimatedTime || offerData.estimatedArrivalTime,
+      estimatedArrivalTime: offerData.estimatedArrivalTime || offerData.estimatedTime,
+      message: offerData.message || '',
+    };
+    const res = await fetch(`${API_BASE_URL}/offers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('submitOfferApi error:', error);
+    return { success: false, message: error.message || 'Network error submitting offer' };
+  }
+};
+
+/**
+ * Get Vendor's Submitted Bids
+ */
+export const getMyBidsApi = async (token) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/offers/my-bids`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('getMyBidsApi error:', error);
+    return { success: false, message: error.message || 'Network error fetching bids' };
+  }
+};
+
+/**
+ * Verify Doorstep 4-digit OTP to start service job
+ */
+export const verifyStartOtpApi = async (token, requestId, otp) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/service-requests/${requestId}/verify-start-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ otp }),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('verifyStartOtpApi error:', error);
+    return { success: false, message: error.message || 'Network error verifying start OTP' };
+  }
+};
+
+/**
+ * Complete Service Job
+ */
+export const completeServiceRequestApi = async (token, requestId, finalAmount, paymentMode = 'Cash') => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/service-requests/${requestId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ finalAmount, paymentMode }),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('completeServiceRequestApi error:', error);
+    return { success: false, message: error.message || 'Network error completing job' };
+  }
+};
+
+/**
+ * Update Vendor Profile (Pincodes, visiting charge, UPI, online status)
+ */
+export const updateVendorProfileApi = async (token, data) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/vendor/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('updateVendorProfileApi error:', error);
+    return { success: false, message: error.message || 'Network error updating vendor profile' };
+  }
+};
+
+/**
+ * Address Management APIs
+ */
+export const getSavedAddressesApi = async (token) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/addresses`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('getSavedAddressesApi error:', error);
+    return { success: false, message: error.message || 'Network error' };
+  }
+};
+
+export const addSavedAddressApi = async (token, addressData) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/addresses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(addressData),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('addSavedAddressApi error:', error);
+    return { success: false, message: error.message || 'Network error' };
+  }
+};
+
+export const updateSavedAddressApi = async (token, id, addressData) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/addresses/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(addressData),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('updateSavedAddressApi error:', error);
+    return { success: false, message: error.message || 'Network error' };
+  }
+};
+
+export const deleteSavedAddressApi = async (token, id) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/addresses/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('deleteSavedAddressApi error:', error);
+    return { success: false, message: error.message || 'Network error' };
+  }
+};
+
+export const setDefaultAddressApi = async (token, id) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/addresses/${id}/default`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('setDefaultAddressApi error:', error);
+    return { success: false, message: error.message || 'Network error' };
+  }
+};
+
+/**
+ * Chat APIs
+ */
+export const getChatMessagesApi = async (token, serviceRequestId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/${serviceRequestId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('getChatMessagesApi error:', error);
+    return { success: false, message: error.message || 'Network error fetching chat' };
+  }
+};
+
+export const sendChatMessageApi = async (token, serviceRequestId, text) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/${serviceRequestId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('sendChatMessageApi error:', error);
+    return { success: false, message: error.message || 'Network error sending message' };
+  }
+};
+
+export const getUnreadChatCountApi = async (token, serviceRequestId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/${serviceRequestId}/unread`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return await res.json();
+  } catch (error) {
+    return { success: false, unreadCount: 0 };
+  }
+};
+
+export const markChatReadApi = async (token, serviceRequestId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/${serviceRequestId}/read`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('markChatReadApi error:', error);
+    return { success: false };
+  }
+};
+
+/**
+ * Invoice & Review APIs
+ */
+export const getServiceRequestInvoiceApi = async (token, requestId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/service-requests/${requestId}/invoice`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('getServiceRequestInvoiceApi error:', error);
+    return { success: false, message: error.message || 'Error fetching invoice' };
+  }
+};
+
+export const submitServiceRequestReviewApi = async (token, requestId, { rating, comment }) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/service-requests/${requestId}/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ rating, comment }),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('submitServiceRequestReviewApi error:', error);
+    return { success: false, message: error.message || 'Error submitting review' };
+  }
+};
+
+
+
+

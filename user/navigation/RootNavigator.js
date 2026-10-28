@@ -3,21 +3,43 @@ import { View, ActivityIndicator } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../src/context/AuthContext';
 
-import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen';
-import LocationSetupScreen from '../screens/LocationSetupScreen';
-import CreateRequestScreen from '../screens/CreateRequestScreen';
-import ManageAddressesScreen from '../screens/ManageAddressesScreen';
-import PaymentOptionsScreen from '../screens/PaymentOptionsScreen';
-import SafetyPrivacyScreen from '../screens/SafetyPrivacyScreen';
-import CustomerSupportScreen from '../screens/CustomerSupportScreen';
-import RequestDetailsScreen from '../screens/RequestDetailsScreen';
+// Common / Shared Screens
+import LoginScreen from '../screens/common/LoginScreen';
+import SignupScreen from '../screens/common/SignupScreen';
+import LocationSetupScreen from '../screens/common/LocationSetupScreen';
+import PaymentOptionsScreen from '../screens/common/PaymentOptionsScreen';
+import SafetyPrivacyScreen from '../screens/common/SafetyPrivacyScreen';
+import CustomerSupportScreen from '../screens/common/CustomerSupportScreen';
+
+// User / Customer Screens
+import CreateRequestScreen from '../screens/user/CreateRequestScreen';
+import RequestDetailsScreen from '../screens/user/RequestDetailsScreen';
+import ManageAddressesScreen from '../screens/user/ManageAddressesScreen';
+import UserChatScreen from '../screens/user/UserChatScreen';
+import InvoiceScreen from '../screens/user/InvoiceScreen';
+
+// Vendor Screens & Settings
+import VendorOnboardingScreen from '../screens/vendor/VendorOnboardingScreen';
+import VendorSettingsNavigator from './VendorSettingsNavigator';
+import BusinessDetailsScreen from '../screens/vendor/settings/BusinessDetailsScreen';
+import ServicesManagementScreen from '../screens/vendor/settings/ServicesManagementScreen';
+import ServiceAreasScreen from '../screens/vendor/settings/ServiceAreasScreen';
+import DocumentsVerificationScreen from '../screens/vendor/settings/DocumentsVerificationScreen';
+import CustomerCareScreen from '../screens/vendor/settings/CustomerCareScreen';
+import HelpAndFaqScreen from '../screens/vendor/settings/HelpAndFaqScreen';
+import TermsAndConditionsScreen from '../screens/vendor/settings/TermsAndConditionsScreen';
+import PrivacyPolicyScreen from '../screens/vendor/settings/PrivacyPolicyScreen';
+import VendorChatScreen from '../screens/vendor/VendorChatScreen';
+import JobDetailsScreen from '../screens/vendor/JobDetailsScreen';
+
+// Navigators
 import BottomTabNavigator from './BottomTabNavigator';
+import VendorBottomTabNavigator from './VendorBottomTabNavigator';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
-  const { token, user, isLoading, login, updateUser } = useAuth();
+  const { token, user, role, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -27,87 +49,63 @@ export default function RootNavigator() {
     );
   }
 
-  const hasSavedAddress = user?.address?.pincode || user?.addressDetails?.pincode;
-  const initialRouteName = token && user ? (hasSavedAddress ? 'MainTabs' : 'LocationSetup') : 'Login';
+  const isVendor = role === 'vendor' || user?.role === 'vendor';
 
   return (
     <Stack.Navigator
-      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="Login">
-        {(props) => (
-          <LoginScreen
-            {...props}
-            onNavigateToSignup={() => props.navigation.navigate('Signup')}
-            onLoginSuccess={async (userData, newToken) => {
-              await login(newToken, userData);
-              const addr = userData.address || userData.addressDetails;
-              if (addr?.street || addr?.pincode || addr?.houseNo) {
-                props.navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
-              } else {
-                props.navigation.navigate('LocationSetup');
-              }
-            }}
-          />
-        )}
-      </Stack.Screen>
-
-      <Stack.Screen name="Signup">
-        {(props) => (
-          <SignupScreen
-            {...props}
-            onNavigateToLogin={() => props.navigation.navigate('Login')}
-            onSignupSuccess={async (userData, newToken) => {
-              await login(newToken, userData);
-              const addr = userData.address || userData.addressDetails;
-              if (addr?.street || addr?.pincode || addr?.houseNo) {
-                props.navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
-              } else {
-                props.navigation.navigate('LocationSetup');
-              }
-            }}
-          />
-        )}
-      </Stack.Screen>
-
-      <Stack.Screen name="LocationSetup">
-        {(props) => (
-          <LocationSetupScreen
-            {...props}
-            userToken={token}
-            onCompleteSetup={async (address) => {
-              if (address) {
-                await updateUser({ addressDetails: address, address });
-              }
-              props.navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' }],
-              });
-            }}
-          />
-        )}
-      </Stack.Screen>
-
-      <Stack.Screen name="CreateRequest">
-        {(props) => (
-          <CreateRequestScreen
-            {...props}
-            userToken={token}
-            userAddress={user?.addressDetails || user?.address}
-          />
-        )}
-      </Stack.Screen>
-
-      <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-      <Stack.Screen name="ManageAddresses" component={ManageAddressesScreen} />
-      <Stack.Screen name="PaymentOptions" component={PaymentOptionsScreen} />
-      <Stack.Screen name="SafetyPrivacy" component={SafetyPrivacyScreen} />
-      <Stack.Screen name="CustomerSupport" component={CustomerSupportScreen} />
-      <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} />
+      {!token ? (
+        /* ================= AUTH STACK ================= */
+        <Stack.Group>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="VendorOnboarding" component={VendorOnboardingScreen} />
+          <Stack.Screen name="LocationSetup" component={LocationSetupScreen} />
+        </Stack.Group>
+      ) : isVendor ? (
+        /* ================= VENDOR / PARTNER STACK ================= */
+        <Stack.Group>
+          <Stack.Screen name="VendorTabs" component={VendorBottomTabNavigator} />
+          <Stack.Screen name="VendorSettings" component={VendorSettingsNavigator} />
+          <Stack.Screen name="BusinessDetails" component={BusinessDetailsScreen} />
+          <Stack.Screen name="ServicesManagement" component={ServicesManagementScreen} />
+          <Stack.Screen name="ServiceAreas" component={ServiceAreasScreen} />
+          <Stack.Screen name="DocumentsVerification" component={DocumentsVerificationScreen} />
+          <Stack.Screen name="CustomerCare" component={CustomerCareScreen} />
+          <Stack.Screen name="HelpAndFaq" component={HelpAndFaqScreen} />
+          <Stack.Screen name="TermsAndConditions" component={TermsAndConditionsScreen} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <Stack.Screen name="ManageAddresses" component={ManageAddressesScreen} />
+          <Stack.Screen name="PaymentOptions" component={PaymentOptionsScreen} />
+          <Stack.Screen name="SafetyPrivacy" component={SafetyPrivacyScreen} />
+          <Stack.Screen name="CustomerSupport" component={CustomerSupportScreen} />
+          <Stack.Screen name="VendorChat" component={VendorChatScreen} />
+          <Stack.Screen name="UserChat" component={UserChatScreen} />
+          <Stack.Screen name="Invoice" component={InvoiceScreen} />
+          <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
+        </Stack.Group>
+      ) : (
+        /* ================= CUSTOMER STACK ================= */
+        <Stack.Group>
+          <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+          <Stack.Screen name="LocationSetup" component={LocationSetupScreen} />
+          <Stack.Screen name="CreateRequest" component={CreateRequestScreen} />
+          <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} />
+          <Stack.Screen name="ManageAddresses" component={ManageAddressesScreen} />
+          <Stack.Screen name="PaymentOptions" component={PaymentOptionsScreen} />
+          <Stack.Screen name="SafetyPrivacy" component={SafetyPrivacyScreen} />
+          <Stack.Screen name="CustomerSupport" component={CustomerSupportScreen} />
+          <Stack.Screen name="VendorOnboarding" component={VendorOnboardingScreen} />
+          <Stack.Screen name="UserChat" component={UserChatScreen} />
+          <Stack.Screen name="VendorChat" component={VendorChatScreen} />
+          <Stack.Screen name="Invoice" component={InvoiceScreen} />
+          <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
+        </Stack.Group>
+      )}
     </Stack.Navigator>
   );
 }
